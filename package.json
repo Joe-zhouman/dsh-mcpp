@@ -1,6 +1,6 @@
 {
   "name": "dsh-mcpp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "main": "./lib/index.js",
@@ -14,7 +14,8 @@
   },
   "files": [
     "lib",
-    "static"
+    "static",
+    "cordis.patch.yml"
   ],
   "dsh": {
     "bundle": {

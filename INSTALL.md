@@ -97,8 +97,10 @@ profile 的 `package.json` 与 `cordis.patch.yml` 都有 `.bak-pre-mcpp-*` 备�
 | 启动报 `EADDRINUSE 127.0.0.1:9020` | 旧 Python mcpp 还在跑（或另一个 dsh 实例托管着）。停掉其一：`Get-NetTCPConnection -LocalPort 9020` 找 PID。 |
 | 启动报 `ConfigError: ...` | `configPath` 指向的文件不存在或被改坏；先用 `node scripts/run-standalone.mjs <path>` 单独复现。 |
 | 插件没加载 | 检查 profile `package.json` 的 `dsh.profile.bundles` 是否含 `dsh-mcpp`、`cordis.patch.yml` 是否有 `- id: mcpp` 行、`node_modules/dsh-mcpp/lib/index.js` 是否存在。 |
+| 更新插件/其它插件时报 `dsh-mcpp: declared patch ./cordis.patch.yml is missing — the profile will fail to boot` | pnpm 按 `files` 打包 `file:` 依赖，安装副本里缺 `cordis.patch.yml`。已在 `package.json` 的 `files` 里补上（v0.2.1）；修复办法是重跑本页的一键安装（会重新物化副本），再用 `node .local-deploy/tools/check-profile-bundles.mjs` 校验。 |
 | 设置页没有「MCP 工具」 | `settings.section` 槽未声明（打开过一次设置页后才会注册）或客户端 bundle 未加载；确认 `lib/client.js` 在 profile 副本里、且重启过应用。 |
 | 侧栏没有「MCP 网关」 | 该 profile 没装 `dsh-better-sidebar`（缺失时插件安静跳过）；或客户端 bundle 未加载。 |
 | 工具注册失败列表非空 | 同名冲突（另配了 mcp-client 指向同一上游）或上游不可用；`mcp__` 前缀相同即算冲突。 |
 | 工具少了一批 | 上游自己的问题：`POST /api/upstreams/<name>/test` 看 `tool_count`；stdio 上游还要确认命令路径。 |
 | 改了 mcpp 的 `config.yaml` 但网关没变 | 网关只在启动时读一次；改完用 `/admin` 保存（走 reload）或重启 dsh。 |
+

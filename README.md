@@ -95,6 +95,16 @@ node --experimental-strip-types scripts/verify-live.mjs --base http://127.0.0.1:
 - v0.1：207/207 单测与端到端用例通过；91 个 golden 与旧服务逐端点 **91/91 identical**；同一套检查在「插件装进 dsh 宿主」的实例上复跑同样 91/91，`verify-live` 12 项全过。
 - v0.2：全量 **255/255** 测试通过（新增 24 个 native/selection + 21 个同源路由 + 3 个接线端到端）；在真实 dsh web 宿主上实测：选择往返 `POST /plugins/mcpp/ui/selection` → `registered` 出现/消失、设置页「MCP 工具」分区渲染 20 个工具、侧栏「MCP 网关」页签加载管理页、`/plugins/mcpp/*` 全部受 dsh 浏览器会话围栏保护（未登录 401）；9020 外部端点重跑 golden 仍 **91/91**。
 
+## 打包约定（踩过的坑）
+
+`package.json` 的 `files` **必须**包含 `cordis.patch.yml`。profile 里的 `dsh-mcpp` 是 `file:` 依赖，pnpm 会按 `files` 打成一个真实目录副本；漏掉这个文件后，下一次 profile 更新重装插件就会得到「声明了 bundle patch 但文件不存在」的副本，dsh 的启动前组合校验会直接拒绝整个 profile：
+
+```
+dsh-mcpp: declared patch ./cordis.patch.yml is missing — the profile will fail to boot
+```
+
+`test/package.test.mjs` 会守住这条（`files` 三件套 `lib` / `static` / `cordis.patch.yml` 缺一即红）。改包结构后跑一遍全量测试再交给 profile 更新流程。
+
 ## 安装
 
 见 [INSTALL.md](./INSTALL.md)。一句话：构建 → 把 `lib/`（含 `client.js`）+ `static/` 拷进目标 profile 的 `node_modules/dsh-mcpp`，profile 的 `package.json` 加依赖与 `dsh.profile.bundles`，`cordis.patch.yml` 加一行按 id 的 `config`，重启该 dsh 端。
@@ -109,3 +119,4 @@ node --experimental-strip-types scripts/verify-live.mjs --base http://127.0.0.1:
 | 上游 HTTP 错误 | 透传状态码到日志、JSON-RPC `-32000` | 同左 |
 
 其余行为按 `test/fixtures/golden/`（旧服务真实响应）与 `test/integration.test.mjs` 对齐。
+
