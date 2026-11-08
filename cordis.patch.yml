@@ -1,0 +1,6 @@
+# Bundle patch for dsh-mcpp: insert the gateway row into the profile layer.
+# The real config (configPath) lives in the profile's own cordis.patch.yml, so
+# this file stays free of machine coordinates.
+- insert:
+    - id: mcpp
+      name: dsh-mcpp

@@ -1,0 +1,116 @@
+{
+  "endpoint": "/api/client-presets",
+  "method": "GET",
+  "request": null,
+  "status": 200,
+  "json": {
+    "clients": {
+      "claude-code": {
+        "connect": "claude",
+        "naming": "claude"
+      },
+      "claude-desktop": {
+        "connect": "claude",
+        "naming": "claude"
+      },
+      "coder": {
+        "connect": "claude",
+        "naming": "coder"
+      },
+      "codex": {
+        "connect": "codex",
+        "naming": "codex"
+      },
+      "cursor": {
+        "connect": "cursor",
+        "naming": "cursor"
+      },
+      "hermes": {
+        "connect": "hermes",
+        "naming": "cursor"
+      },
+      "openclaw": {
+        "connect": "openclaw",
+        "naming": "coder"
+      },
+      "opencode": {
+        "connect": "opencode",
+        "naming": "opencode"
+      },
+      "pi": {
+        "connect": "claude",
+        "naming": "opencode"
+      },
+      "reasonix": {
+        "connect": "codex",
+        "naming": "claude"
+      },
+      "trae": {
+        "connect": "claude",
+        "naming": "cursor"
+      },
+      "workbuddy": {
+        "connect": "claude",
+        "naming": "claude"
+      }
+    },
+    "connect_modes": {
+      "claude": {
+        "file": "~/.claude.json 或 claude_desktop_config.json",
+        "template": "{\n  \"mcpServers\": {\n    \"{toolset}\": {\n      \"type\": \"http\",\n      \"url\": \"{endpoint}\"{token_header}\n    }\n  }\n}\n"
+      },
+      "codex": {
+        "file": "~/.codex/config.toml",
+        "template": "[mcp_servers.{toolset}]\nurl = \"{endpoint}\"\n# put the token in an env var, then reference it:\nbearer_token_env_var = \"MCP_TOKEN\"\n"
+      },
+      "cursor": {
+        "file": "~/.cursor/mcp.json",
+        "template": "{\n  \"mcpServers\": {\n    \"{toolset}\": {\n      \"url\": \"{endpoint}\",\n      \"transport\": { \"type\": \"streamableHttp\" }{token_header}\n    }\n  }\n}\n"
+      },
+      "hermes": {
+        "file": "~/.hermes/config.yaml",
+        "template": "mcp_servers:\n  {toolset}:\n    url: \"{endpoint}\"\n    headers:\n      Authorization: \"Bearer {token}\"\n"
+      },
+      "openclaw": {
+        "file": "~/.openclaw/openclaw.json",
+        "template": "{\n  \"mcp\": {\n    \"servers\": {\n      \"{toolset}\": {\n        \"url\": \"{endpoint}\",\n        \"transport\": \"streamable-http\"{token_header}\n      }\n    }\n  }\n}\n"
+      },
+      "opencode": {
+        "file": "opencode.json 或 ~/.config/opencode/opencode.json",
+        "template": "{\n  \"mcp\": {\n    \"{toolset}\": {\n      \"type\": \"remote\",\n      \"url\": \"{endpoint}\"{token_header}\n    }\n  }\n}\n"
+      }
+    },
+    "naming_modes": {
+      "claude": {
+        "endpoint_path": "/{toolset}/claude/mcp",
+        "format": "mcp__{server}__{tool}",
+        "sample": "mcp__search__papers"
+      },
+      "coder": {
+        "endpoint_path": "/{toolset}/coder/mcp",
+        "format": "{server}__{tool}",
+        "sample": "search__papers"
+      },
+      "codex": {
+        "endpoint_path": "/{toolset}/codex/mcp",
+        "format": "{server}::{tool}",
+        "sample": "search::papers"
+      },
+      "cursor": {
+        "endpoint_path": "/{toolset}/cursor/mcp",
+        "format": "mcp_{server}_{tool}",
+        "sample": "mcp_search_papers"
+      },
+      "default": {
+        "endpoint_path": "/{toolset}/default/mcp",
+        "format": "{tool}",
+        "sample": "papers"
+      },
+      "opencode": {
+        "endpoint_path": "/{toolset}/opencode/mcp",
+        "format": "{server}_{tool}",
+        "sample": "search_papers"
+      }
+    }
+  }
+}

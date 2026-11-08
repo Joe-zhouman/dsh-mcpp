@@ -1,0 +1,80 @@
+{
+  "endpoint": "/visual/coder/mcp",
+  "method": "POST",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  },
+  "status": 200,
+  "json": {
+    "id": 2,
+    "jsonrpc": "2.0",
+    "result": {
+      "tools": [
+        {
+          "description": "Analyze images with a dedicated visual model — the right choice when the current model cannot view images itself, or when a tuned analysis prompt helps (PNG/JPG/screenshots/diagrams/charts). Pick the matching `action` for a tuned prompt; if no action fits, use `general-image` with `extra_prompt`. Multimodal models may simply Read the image when direct viewing suffices. Image-ONLY.",
+          "inputSchema": {
+            "properties": {
+              "action": {
+                "default": "general-image",
+                "description": "general-image: describe any image, transcribe text first. ui-to-artifact: convert UI screenshot to self-contained HTML. diagram-analysis: extract nodes, edges, and hierarchy from an architecture or flowchart diagram; output Mermaid if the diagram admits it. data-viz: extract axes, data points, and trend from a quantitative chart. error-diagnosis: classify the error in a screenshot and suggest a fix. ui-diff: compare a design mockup against its implementation screenshot. paper-figure: write a publication-ready figure analysis paragraph giving a complete analysis of the figure from an academic perspective.",
+                "enum": [
+                  "general-image",
+                  "ui-to-artifact",
+                  "diagram-analysis",
+                  "data-viz",
+                  "error-diagnosis",
+                  "ui-diff",
+                  "paper-figure"
+                ],
+                "type": "string"
+              },
+              "effort": {
+                "default": "auto",
+                "description": "Reasoning effort. 'auto' (default) uses each action's tuned preset.",
+                "enum": [
+                  "auto",
+                  "minimal",
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "type": "string"
+              },
+              "extra_prompt": {
+                "description": "Optional additional user instructions appended to the analysis prompt. Use this to customize any action — e.g., for paper-figure, paste the figure contract and paper background here; for general-image, specify what to focus on.",
+                "type": "string"
+              },
+              "image": {
+                "description": "Image: file path or http(s) URL.",
+                "type": "string"
+              },
+              "image2": {
+                "description": "Second image, used by ui-diff.",
+                "type": "string"
+              },
+              "model": {
+                "default": "auto",
+                "description": "Model tier. 'auto' (default) uses each action's tuned preset — pro for high-value reasoning (ui-to-artifact, diagram-analysis, data-viz, paper-figure), std for routine tasks (general-image, error-diagnosis, ui-diff). Override only when you have a specific reason.",
+                "enum": [
+                  "auto",
+                  "pro",
+                  "std",
+                  "lite"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "type": "object"
+          },
+          "name": "visual__analyze_image"
+        }
+      ]
+    }
+  }
+}

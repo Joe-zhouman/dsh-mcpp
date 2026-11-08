@@ -1,0 +1,48 @@
+{
+  "endpoint": "/api/keys",
+  "method": "GET",
+  "request": null,
+  "status": 200,
+  "json": {
+    "web-reader": {
+      "healthy_count": 1,
+      "keys": [
+        {
+          "index": 0,
+          "key": "433d...",
+          "paused": false
+        }
+      ]
+    },
+    "web-search-prime": {
+      "healthy_count": 1,
+      "keys": [
+        {
+          "index": 0,
+          "key": "433d...",
+          "paused": false
+        }
+      ]
+    },
+    "yuanbao": {
+      "healthy_count": 1,
+      "keys": [
+        {
+          "index": 0,
+          "key": "sk-3...",
+          "paused": false
+        }
+      ]
+    },
+    "zread": {
+      "healthy_count": 1,
+      "keys": [
+        {
+          "index": 0,
+          "key": "433d...",
+          "paused": false
+        }
+      ]
+    }
+  }
+}

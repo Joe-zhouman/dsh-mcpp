@@ -1,0 +1,19 @@
+{
+  "endpoint": "/api/upstreams",
+  "method": "GET",
+  "request": null,
+  "status": 200,
+  "json": [
+    "search",
+    "seed-viz",
+    "context7",
+    "web-reader",
+    "web-search-prime",
+    "zread",
+    "exa",
+    "docdistill",
+    "doubao-search",
+    "sciverse",
+    "yuanbao"
+  ]
+}

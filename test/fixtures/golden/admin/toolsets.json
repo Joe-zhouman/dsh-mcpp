@@ -1,0 +1,69 @@
+{
+  "endpoint": "/api/toolsets",
+  "method": "GET",
+  "request": null,
+  "status": 200,
+  "json": [
+    {
+      "default": true,
+      "tools": [],
+      "toolset": "mcpp"
+    },
+    {
+      "default": false,
+      "tools": [
+        "sciverse/list_catalog",
+        "sciverse/semantic_search",
+        "sciverse/list_paper_relations",
+        "sciverse/read_content",
+        "sciverse/get_resource"
+      ],
+      "toolset": "sciverse"
+    },
+    {
+      "default": false,
+      "tools": [
+        "search/search_papers",
+        "search/paper_details",
+        "search/journal_ranking"
+      ],
+      "toolset": "academic"
+    },
+    {
+      "default": false,
+      "tools": [
+        "search/jina_reader",
+        "context7/resolve-library-id",
+        "context7/query-docs",
+        "web-reader/webReader"
+      ],
+      "toolset": "get"
+    },
+    {
+      "default": false,
+      "tools": [
+        "search/searxng_search",
+        "web-search-prime/web_search_prime",
+        "exa/web_search_exa",
+        "doubao-search/web_search",
+        "yuanbao/SearchPro"
+      ],
+      "toolset": "search"
+    },
+    {
+      "default": false,
+      "tools": [
+        "seed-viz/analyze_image"
+      ],
+      "toolset": "visual"
+    },
+    {
+      "default": false,
+      "tools": [
+        "docdistill/document_to_pdf",
+        "docdistill/analyze_doc"
+      ],
+      "toolset": "extract"
+    }
+  ]
+}

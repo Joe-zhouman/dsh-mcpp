@@ -1,0 +1,86 @@
+# dsh-mcpp
+
+把 Python 版 **mcpp** 网关（`C:\Users\joe\Documents\repo\skill\mcpp`，一个 MCP 聚合网关）完整重实现为 **DSH 宿主侧 Cordis 插件**。旧服务退场后，`127.0.0.1:9020` 上回答 `/api/*`、`/admin` 与 `/{toolset}/{naming}/mcp` 的就是这个插件。
+
+**对客户端是 drop-in**：同一批路径、同一个 `config.yaml`、同一个 `auth.token`。Claude Code / Cursor / OpenCode / Codex 等现有配置一行都不用改。
+
+## 它做什么
+
+- 读取旧服务的 YAML（`upstreams` / `expose` / `server_name` / `auth` / `clients`），把上游 MCP 服务器（Streamable HTTP 与 stdio 子进程）聚合成若干 **toolset**，每个 toolset 按多种 **naming mode** 暴露：
+  - `/{toolset}/claude/mcp` → `mcp__{toolset}__{tool}`
+  - `/{toolset}/cursor/mcp` → `mcp_{toolset}_{tool}`
+  - `/{toolset}/opencode/mcp` → `{toolset}_{tool}`
+  - `/{toolset}/coder/mcp` → `{toolset}__{tool}`
+  - `/{toolset}/codex/mcp` → `{toolset}::{tool}`
+  - `/{toolset}/default/mcp` → `{tool}`（另有 legacy `/mcp`）
+- 工具面改写：`as:` 改名、`hide: true` 隐藏、`toolset` 分组、描述里 `` `upstream/tool` `` 反引号交叉引用按客户端格式展开、`params` 的 `map_from` / `enum` / `preset` / `hidden+default` / `required` 覆盖。
+- 上游密钥池：轮转 + 401/403/429 标记不健康 + `/api/keys` 管理。
+- 管理接口与页面：`/api/config`、`/api/tools`、`/api/upstreams`、`/api/upstreams/{n}/test`、`/api/toolsets`、`/api/expose`、`/api/client-presets`、`/api/keys`、`/api/calls`、`/api/add-server`，以及原样的 `/admin` 页面。
+- 网关 bearer 鉴权（header / `?token=` / `mcpp_token` cookie），`clients:` 可逐 naming 关停端点。
+
+## 代码结构
+
+```
+index.mjs              bundle 入口（re-export src/plugin.ts）
+src/plugin.ts          Cordis 插件：Config + apply（起停网关、effect 生命周期）
+src/bootstrap.ts       composition root：读配置、建上游/密钥池、预热 stdio、reload 路径
+src/server.ts          node:http 监听：路由表、鉴权、cookie、静态 admin 页
+src/gateway.ts         MCP JSON-RPC 协议层（initialize / tools/list / tools/call / …）
+src/admin.ts           /api/* 全部管理接口
+src/config.ts          YAML 模型、默认值、交叉校验、序列化
+src/transform.ts       下游工具面与参数变换
+src/upstream-http.ts   Streamable HTTP 上游（握手、session 恢复、重试一次）
+src/upstream-stdio.ts  stdio 上游（两种帧、超时隔离、EOF 重生成）
+src/keypool.ts         密钥轮转池
+src/presets.ts         naming modes / connect modes / client 目录
+src/types.ts           共享契约
+static/index.html      旧服务管理页（原样拷贝）
+scripts/run-standalone.mjs  脱离 dsh 直接起网关（验证用）
+scripts/parity/       与旧服务响应对齐的抓取/比较工具
+test/                 node --test 单测与端到端测试
+```
+
+**零运行时依赖**：产物只 import 宿主提供的 `@deepseek-ai/schemastery`；`js-yaml` 被打进 bundle。
+
+## 构建与测试
+
+便携 Node 24（`D:\softwares\node-v24.21.0-win-x64`）下：
+
+```powershell
+cd L:\dsh\.local-deploy\mcpp-plugin
+node --test --experimental-strip-types test/*.test.mjs        # 单测 + 端到端
+node ../../node_modules/tsdown/dist/run.mjs --config tsdown.config.mjs --config-loader native   # 构建 lib/index.js
+node ../../node_modules/typescript/bin/tsc -p tsconfig.json  # 类型检查
+```
+
+脱离 dsh 验证（候选端口 9021，不打扰 9020 上的旧服务）：
+
+```powershell
+node --experimental-strip-types scripts/run-standalone.mjs C:\Users\joe\Documents\repo\skill\mcpp\config.yaml 9021
+```
+
+与旧服务逐端点对齐：
+
+```powershell
+node scripts/parity/capture-golden.mjs                 # 从旧服务抓 golden（token 运行时读取，不落盘）
+node scripts/parity/compare.mjs --candidate http://127.0.0.1:9021     # 新旧逐端点对比
+node scripts/parity/verify-against-golden.mjs --candidate http://127.0.0.1:9020   # 旧服务退役后只对 golden 验证
+node --experimental-strip-types scripts/verify-live.mjs --base http://127.0.0.1:9020   # 真实 tools/call
+```
+
+**已验证**（2026-11-08）：207/207 单测与端到端用例通过；91 个 golden 与旧服务逐端点 **91/91 identical**；同一套检查在「插件装进 dsh 宿主」的实例上复跑同样 91/91，`verify-live` 12 项全过。
+
+## 安装
+
+见 [INSTALL.md](./INSTALL.md)。一句话：把 `lib/` + `static/` 拷进目标 profile 的 `node_modules/dsh-mcpp`，profile 的 `package.json` 加依赖与 bundle 项，`cordis.patch.yml` 加一行 `config`，重启该 dsh 端。
+
+## 与旧服务的已知偏差
+
+| 场景 | 旧服务 | 本插件 |
+|---|---|---|
+| 非法 JSON body | 500 | 400 + JSON-RPC `-32700` |
+| 参数变换非法值 | 500 | JSON-RPC `-32602` |
+| 未知路径 / 错误方法 | FastAPI `{"detail": ...}` 404/405 | 同左（保持一致） |
+| 上游 HTTP 错误 | 透传状态码到日志、JSON-RPC `-32000` | 同左 |
+
+其余行为按 `test/fixtures/golden/`（旧服务真实响应）与 `test/integration.test.mjs` 对齐。

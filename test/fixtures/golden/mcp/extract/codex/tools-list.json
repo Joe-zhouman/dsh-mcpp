@@ -1,0 +1,60 @@
+{
+  "endpoint": "/extract/codex/mcp",
+  "method": "POST",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  },
+  "status": 200,
+  "json": {
+    "id": 2,
+    "jsonrpc": "2.0",
+    "result": {
+      "tools": [
+        {
+          "description": "Convert a local Office document (.doc/.docx/.ppt/.pptx) to a PDF that preserves visual appearance (layout, tables, images). Use this INSTEAD OF reading the Office file directly when you only need the text and don't care about raw structure — e.g. when \"Heading 1 is the same with Bold for title\" for your task. Workflow: convert here, then call `extract::analyze_doc` on the resulting PDF to extract text. This tool renders appearance, not structure. (Not supported on macOS.)",
+          "inputSchema": {
+            "properties": {
+              "source": {
+                "description": "Local file path of the Office document (.doc/.docx/.ppt/.pptx).",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source"
+            ],
+            "type": "object"
+          },
+          "name": "extract::document_to_pdf"
+        },
+        {
+          "description": "Analyze a PDF document. You MUST use this tool instead of directly reading PDF files when you need the document's text content and the raw file structure is not what you care about. Extracts content as TEXT-ONLY format. For Office files (.doc/.docx/.ppt/.pptx), use `extract::document_to_pdf` first to convert to PDF. For images (PNG/JPG/screenshots), use `visual::analyze_image` instead.",
+          "inputSchema": {
+            "properties": {
+              "output_format": {
+                "default": "md",
+                "enum": [
+                  "md",
+                  "latex",
+                  "json"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "description": "Local file path of the PDF document.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source"
+            ],
+            "type": "object"
+          },
+          "name": "extract::analyze_doc"
+        }
+      ]
+    }
+  }
+}

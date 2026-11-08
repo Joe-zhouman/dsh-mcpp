@@ -1,0 +1,32 @@
+{
+  "endpoint": "/academic/opencode/mcp",
+  "method": "POST",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-11-25",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "mcpp-parity-capture",
+        "version": "0.0.0"
+      }
+    }
+  },
+  "status": 200,
+  "json": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "capabilities": {
+        "tools": {}
+      },
+      "protocolVersion": "2025-11-25",
+      "serverInfo": {
+        "name": "mcpp/academic",
+        "version": "0.1.0"
+      }
+    }
+  }
+}

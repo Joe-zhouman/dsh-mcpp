@@ -1,0 +1,149 @@
+{
+  "endpoint": "/academic/coder/mcp",
+  "method": "POST",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  },
+  "status": 200,
+  "json": {
+    "id": 2,
+    "jsonrpc": "2.0",
+    "result": {
+      "tools": [
+        {
+          "description": "Search academic papers. Returns papers with complete title/abstract/keywords and journal ranking data.",
+          "inputSchema": {
+            "properties": {
+              "backfill_abstracts": {
+                "default": true,
+                "description": "Backfill abstracts via S2S API (slow, ~18s+). Turn on only when you need abstracts.",
+                "type": "boolean"
+              },
+              "journal": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "restrict results to one journal by name (normalized containment match). "
+              },
+              "keywords": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "optional extra terms to narrow results."
+              },
+              "min_cas_quartile": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "include only papers with CAS quartile >= this\n              (\"1区\"/\"2区\"/\"3区\"/\"4区\")"
+              },
+              "min_jcr_quartile": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "include only papers with JCR quartile >= this\n              (\"Q1\"/\"Q2\"/\"Q3\"/\"Q4\")"
+              },
+              "num_results": {
+                "default": 10,
+                "description": "max number of results to return (default 10)",
+                "type": "integer"
+              },
+              "query": {
+                "description": "plain keyword/natural-language search string",
+                "type": "string"
+              },
+              "year_from": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "filter papers from this year (inclusive)"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "academic__search_papers"
+        },
+        {
+          "description": "Look up a single paper by a typed identifier (CURIE) across all sources.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "identifier": {
+                "description": "a CURIE \"TYPE:value\", e.g.\n\"DOI:10.1002/smll.202509482\", \"PMID:42274106\",\n\"arXiv:2305.12345\", \"PMCID:PMC1234567\". Type is\ncase-insensitive (\"doi:...\" == \"DOI:...\").",
+                "type": "string"
+              }
+            },
+            "required": [
+              "identifier"
+            ],
+            "type": "object"
+          },
+          "name": "academic__paper_details"
+        },
+        {
+          "description": "Look up journal quartile/IF data.",
+          "inputSchema": {
+            "properties": {
+              "journal_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "journal name (preferred)"
+              }
+            },
+            "required": [
+              "journal_name"
+            ],
+            "type": "object"
+          },
+          "name": "academic__journal_ranking"
+        }
+      ]
+    }
+  }
+}

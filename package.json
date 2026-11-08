@@ -1,0 +1,34 @@
+{
+  "name": "dsh-mcpp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    }
+  },
+  "files": [
+    "lib",
+    "static"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.0.0",
+    "js-yaml": "^4.3.2"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "*"
+  },
+  "scripts": {
+    "build": "node ../../node_modules/tsdown/dist/run.mjs --config tsdown.config.mjs --config-loader native",
+    "test": "node --test --experimental-strip-types test/*.test.mjs",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json"
+  }
+}

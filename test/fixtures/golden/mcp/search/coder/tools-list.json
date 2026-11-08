@@ -1,0 +1,229 @@
+{
+  "endpoint": "/search/coder/mcp",
+  "method": "POST",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list",
+    "params": {}
+  },
+  "status": 200,
+  "json": {
+    "id": 2,
+    "jsonrpc": "2.0",
+    "result": {
+      "tools": [
+        {
+          "description": "Search the web using the SearXNG meta-search engine.This is a common search tool. Use it when no other search tools are available.",
+          "inputSchema": {
+            "properties": {
+              "num_results": {
+                "default": 10,
+                "description": "Maximum number of results to return (default 10)",
+                "type": "integer"
+              },
+              "query": {
+                "description": "Search query string",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "search__searxng"
+        },
+        {
+          "description": "Search web information, returns results including web page title, web page URL, web page summary, website name, website icon, etc.",
+          "inputSchema": {
+            "properties": {
+              "content_size": {
+                "description": "Control the number of words in the web page summary; default value is balance - balanced : suitable for most queries. - detail: more comprehensive answers.",
+                "enum": [
+                  "balance",
+                  "detail"
+                ],
+                "type": "string"
+              },
+              "domain": {
+                "description": "Used to limit the scope of search results, only return content from specified whitelist domains, such as: www.example.com.",
+                "type": "string"
+              },
+              "query": {
+                "description": "Content to be searched. Characters less than 70 are recommended.",
+                "type": "string"
+              },
+              "range": {
+                "description": "Search for web pages within a specified time range.",
+                "enum": [
+                  "one_day",
+                  "one_week",
+                  "one_month",
+                  "one_year",
+                  "any"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "search__zai"
+        },
+        {
+          "description": "Semantic web search (Exa). Describe the page you want rather than listing keywords; Exa returns clean content highlights from the top results. Verified reachable from this machine.",
+          "inputSchema": {
+            "properties": {
+              "numResults": {
+                "description": "Number of search results to return (default: 10).",
+                "type": "number"
+              },
+              "objective": {
+                "description": "What you are trying to find out; Exa uses it to rank results.",
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              "query": {
+                "description": "Natural language search query. Should be a semantically rich description of the ideal page, not just keywords. Optionally include category:<type> (company, people) to focus results — e.g. 'category:people John Doe software engineer'.",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "query",
+              "objective"
+            ],
+            "type": "object"
+          },
+          "name": "search__exa"
+        },
+        {
+          "description": "Web search on the Chinese web. It carries site authority grading (auth_level) and can return full page text (need_content). ",
+          "inputSchema": {
+            "properties": {
+              "auth_level": {
+                "default": 0,
+                "description": "权威等级过滤，0 为默认，1 为非常权威",
+                "title": "Authlevel",
+                "type": "integer"
+              },
+              "count": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "返回条数；默认为 10 条,最多 50 条",
+                "title": "Count"
+              },
+              "need_content": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "是否返回网页正文",
+                "title": "Needcontent"
+              },
+              "query": {
+                "description": "1~100 Char",
+                "title": "Query",
+                "type": "string"
+              },
+              "sites": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "仅搜索指定站点，以 | 分隔，最多 20 个",
+                "title": "Sites"
+              },
+              "time_range": {
+                "default": "",
+                "description": "搜索时间范围，OneDay/OneWeek/OneMonth/OneYear 或日期区间",
+                "title": "Timerange",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "search__doubao"
+        },
+        {
+          "description": "腾讯元宝联网搜索。适合中文官网和中文文档定位，与豆包中文媒体搜索互补；英文官方技术资料优先现有智谱。默认网页模式0，按需使用原生site/freshness筛选；site传完整主机域名，不能假定含全部子域。返回Response.Pages内JSON字符串，passage和content可截断，不是全文抓取；垂直卡片须核验信源和更新时间。当前每月2000次免费为用户确认权益，未查询剩余。",
+          "inputSchema": {
+            "properties": {
+              "count": {
+                "description": "返回条数档位10/20/30/40/50，字符串；省略按上游默认10，混合模式可额外加入垂直卡片。",
+                "enum": [
+                  "10",
+                  "20",
+                  "30",
+                  "40",
+                  "50"
+                ],
+                "type": "string"
+              },
+              "freshness": {
+                "description": "搜索时效范围。示例：d[N]表示搜索最近N天，N取值1-30整数；m[N]表示搜索最近N月，N取值1-12整数；y[N]表示搜索最近N年，N取值1-5整数。例如，2026.6.10分别传参d7/m3/y1进行搜索，则搜索结果的时间范围分别为“2026.6.10-2026.6.4”/“2026.6.10-2026.4.1”/“2026”，以此类推。",
+                "type": "string"
+              },
+              "industry": {
+                "description": "垂直领域搜索。示例：gov/news/acad/finance，分别对应党政机关、权威媒体、学术（英文）、金融。",
+                "enum": [
+                  "news",
+                  "acad",
+                  "finance",
+                  "gov"
+                ],
+                "type": "string"
+              },
+              "mode": {
+                "description": "返回结果类型，不传默认为0。取值：0，公开网页信源结果；1，优质权威垂直信源结果（如天气、金价、股价等实时垂直权威信息）；2，混合结果。",
+                "enum": [
+                  0,
+                  1,
+                  2
+                ],
+                "type": "integer"
+              },
+              "query": {
+                "description": "搜索词/查询词。必填，UTF-8 字节数不超过 1500（约 500 个中英文字符）。示例：今天北京的天气",
+                "type": "string"
+              },
+              "site": {
+                "description": "严格域名，如zsb.ustc.edu.cn；不传URL或路径，不保证自动含子域。",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "search__yuanbao"
+        }
+      ]
+    }
+  }
+}
