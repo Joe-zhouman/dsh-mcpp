@@ -168,6 +168,8 @@
 <script>
 // ============ token handling ============
 function getToken() {
+  // Same-origin mode: the host injects the gateway token (possibly empty).
+  if (window.__MCPP_TOKEN__ !== undefined) return window.__MCPP_TOKEN__;
   let t = new URLSearchParams(location.search).get('token');
   if (t) localStorage.setItem('mcpp_token', t);
   return localStorage.getItem('mcpp_token') || '';
@@ -179,11 +181,19 @@ function authHeaders() {
   if (t) h['Authorization'] = 'Bearer ' + t;
   return h;
 }
+// Same-origin mode: __MCPP_API_BASE__ is the host's admin API root
+// ("/plugins/mcpp/api") while every path below already starts at "/api", so
+// compose the root with the remainder. Without the global (standalone page on
+// the gateway port) the path is used unchanged.
+function apiTarget(url) {
+  const root = window.__MCPP_API_BASE__ || '';
+  return root ? root + url.replace(/^\/api(?=\/|$)/, '') : url;
+}
 async function api(url, opts) {
   opts = opts || {};
   const base = opts.body ? {'Content-Type': 'application/json'} : {};
   opts.headers = Object.assign(base, opts.headers || {}, authHeaders());
-  let res = await fetch(url, opts);
+  let res = await fetch(apiTarget(url), opts);
   if (res.status === 401) {
     const t = prompt('Gateway token required:');
     if (t !== null) { setToken(t); return api(url, opts); }
@@ -192,6 +202,7 @@ async function api(url, opts) {
 }
 (function authBar() {
   const bar = document.getElementById('auth-bar');
+  if (window.__MCPP_API_BASE__) { bar.textContent = 'Auth: 通过 dsh 会话鉴权'; return; }
   const t = getToken();
   bar.textContent = t
     ? 'Auth: bearer token set (' + t.slice(0,4) + '...) — ' + location.origin
@@ -585,7 +596,7 @@ async function loadToolsets() {
   const hint = document.getElementById('ts-token-hint');
   if (hint) hint.textContent = getToken()
     ? 'token 已带进下方配置'
-    : (location.origin.includes('127.0.0.1') ? '' : '⚠ 未设 token,导入配置不含鉴权');
+    : (window.__MCPP_API_BASE__ || location.origin.includes('127.0.0.1') ? '' : '⚠ 未设 token,导入配置不含鉴权');
   await renderToolsetImports();
 }
 
@@ -647,8 +658,11 @@ async function renderToolsetImports() {
     if (!nmode || !cmode) continue;
     // endpoint_path looks like "/{toolset}/claude/mcp" (or "/mcp" for default).
     const epPath = (nmode.endpoint_path || '/{toolset}/default/mcp').replace('{toolset}', ts.toolset);
-    const endpoint = location.origin + epPath;
-    const vars = { origin: location.origin, toolset: ts.toolset, endpoint, token };
+    // Same-origin mode: external clients still reach the gateway on its own
+    // listener, so templates carry the injected public origin there.
+    const publicOrigin = window.__MCPP_PUBLIC_ORIGIN__ || location.origin;
+    const endpoint = publicOrigin + epPath;
+    const vars = { origin: publicOrigin, toolset: ts.toolset, endpoint, token };
     const text = renderTemplate(cmode.template, vars, hasToken);
     const fmtPill = nmode.sample ? nmode.sample.replace('{server}', ts.toolset).replace('{tool}', '<tool>') : '';
     const id = `cp-${bi++}`;

@@ -3,6 +3,7 @@
     "target": "es2024",
     "module": "esnext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     "noEmit": true,
     "strict": true,
     "exactOptionalPropertyTypes": false,

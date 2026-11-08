@@ -212,3 +212,94 @@ $node = "D:\softwares\node-v24.21.0-win-x64\node.exe"
 ```
 
 （`npm run test:...` 也行，只要 PATH 里有那个 node。）
+
+## 增量 v0.2：dsh 原生工具面 + 选择面板 + 侧栏/设置 UI（2026-11-08 第二轮）
+
+**目标**：对 dsh 不再经第二层 MCP 转发——把聚合工具以 `mcp__<toolset>__<tool>` 的公开名**全局注册**进 `ctx.tools`，`execute` 直连上游 transport；外部客户端仍走 9020 的 HTTP MCP 端点。新增：默认全关的 toolset+单工具两级选择、管理页同源进 dsh-better-sidebar 侧栏、设置页分区、供其他插件消费的 `ctx.mcpp` 服务。
+
+### 新增文件与所有权
+
+| 文件 | 负责人 | 说明 |
+|---|---|---|
+| `src/dsh.ts` | Lead | dsh 宿主服务的最小本地类型（tools/webServer/connection/plugin ctx） |
+| `src/native-tools.ts` | native-tools | `ToolDefinition` 适配器 + 代际差量注册 |
+| `src/selection.ts` | native-tools | 选择文档读写（`$DSH_HOME/storages/mcpp/selection.json`） |
+| `src/dsh-routes.ts` | dsh-routes | `/plugins/mcpp/**` 同源路由（管理页 + admin API 直连 + ui API） |
+| `static/index.html` | dsh-routes | 在旧服务页面上做最小改动：API base / 公开 origin / token 来源可注入 |
+| `src/client/**` | client-ui | 浏览器半区：侧栏 tab（iframe）+ 设置页分区（工具勾选） |
+| `src/plugin.ts`、`package.json`、`tsdown.config.mjs` | Lead | 接线、服务、双 pass 构建 |
+
+### `src/native-tools.ts`
+
+```ts
+export interface NativeToolSpec {
+  publicName: string      // mcp__<toolset>__<display>（getFormat('claude') 生成）
+  key: string             // 稳定 expose key（upstream/tool）
+  toolset: string
+  description: string
+  inputSchema?: JsonObject
+  upstreamName: string
+  entry: ExposeEntry
+}
+export function collectNativeToolSpecs(config: GatewayConfig, upstreamTools: Map<string, Tool[]>): NativeToolSpec[]
+export function createNativeToolSet(deps: NativeToolDeps): NativeToolSet
+```
+
+- 规格来源：遍历 `config.expose` 的非 hidden 条目；名字 = `getFormat('claude').formatName(toolset, displayName)`；描述/schema 取自 `transformTools(upstreamName, rawTools, config, 'claude')` 的同名结果（复用现有变换，不重写逻辑）；上游没有该工具则跳过。
+- `ToolDefinition`：`name` / `description` / `parameters=inputSchema` / `output` / `execute` / `timeoutMs`（`deps.timeoutFor?.(spec)`）。
+  - `output.schema = {type:'object', properties:{content:{type:'array',items:{}}, structuredContent:{}}, required:['content'], additionalProperties:false}`；
+  - `output.render(_args, value)`：把 `value.content` 里的 MCP content 投影为纯文本（`text` 块拼接；image/audio/resource 用占位符，与 mcp-client 的 fallback 语义一致）；
+  - `execute(args, exec)`：`paramTransformValue(args as JsonObject, entry)` → `deps.call(upstreamName, entry.tool, upstreamArgs, exec.signal)` → 上游 `isError === true` 时 `throw new Error(text)`（DSH 记为失败），否则返回 `{content, ...structuredContent !== undefined ? {structuredContent} : {}}`。
+- `sync(specs)`：按 `publicName` 差量——新增注册、消失的注销、规格哈希（name+description+schema+key+upstream+tool）变化的先注销再注册；单工具注册失败（同名冲突等）记入 `errors` 并继续其它工具，**不能整体失败**。`dispose()` 注销全部。
+- 测试：假 `DshToolsService`（Map 记录）、假 call；覆盖名字/描述/schema、execute 参数映射与 `isError` 抛错、差量同步与冲突报告。
+
+### `src/selection.ts`
+
+```ts
+export interface SelectionDocument { version: 1; enabled: string[] }   // 稳定 key
+export function selectionPathFromEnv(env?: NodeJS.ProcessEnv): string  // <DSH_HOME>/storages/mcpp/selection.json
+export function createSelectionStore(path: string): SelectionStore     // load/save/path
+```
+
+- 缺文件 → `{version:1, enabled:[]}`（默认全关）；文件损坏 → 打 warn 并回落到空选择，**不让插件失败**；`save` 用临时文件 + rename 原子写，自动建目录；`load` 过滤非字符串/重复项。
+
+### `src/dsh-routes.ts`
+
+```ts
+export function registerDshRoutes(webServer: DshWebServer, deps: DshRoutesDeps): () => void
+```
+
+路由（全部先过 `deps.rejectRequest?.(req)`，非 undefined → 403 JSON）：
+
+| 路由 | 方法 | 行为 |
+|---|---|---|
+| `/plugins/mcpp/admin` | GET | 返回 `static/index.html`，`<head>` 后注入 `<script>window.__MCPP_API_BASE__='/plugins/mcpp/api';window.__MCPP_PUBLIC_ORIGIN__='<deps.publicOrigin()>';window.__MCPP_TOKEN__='<deps.token()>';</script>` |
+| `/plugins/mcpp/api/*` | GET/POST/PUT/DELETE | 把 `*` 作为 `segments` 直接交给进程内 `handleAdminRequest(deps.admin, …)`（与 9020 同一 handler、同一响应体），写明 `Content-Type: application/json` |
+| `/plugins/mcpp/ui/catalog` | GET | `{serverName, publicOrigin, toolsets:[{name, default, tools:[{key, name, description, enabled}]}], registered:[names], errors:[{name,message}], upstreams:[{name,transport}]}` |
+| `/plugins/mcpp/ui/selection` | POST | body `{enabled: string[]}` → `selection.save` → `native.resync()` → `{ok:true, registered, errors}`；非法 body → 400 `{ok:false,error}` |
+| `/plugins/mcpp/ui/sync` | POST | `native.resync()` → `{ok:true, registered, errors}` |
+
+- 未知路径 404 `{error}`；方法不符 405。
+- `static/index.html` 的最小改动（保持 9020 独立访问不变）：`api()` 里 `fetch(url)` → `fetch((window.__MCPP_API_BASE__||'')+url)`；`getToken()` 优先 `window.__MCPP_TOKEN__`；连接模板的 origin 用 `window.__MCPP_PUBLIC_ORIGIN__ || location.origin`；同源模式下鉴权提示显示"通过 dsh 会话鉴权"。
+- 测试：假 `DshWebServer` 只收集路由；假 admin/native/selection；断言 HTML 注入、catalog 形状、selection 保存→resync、admin 透传状态与 body、fence 403、方法 405。
+
+### `src/client/**`（浏览器半区）
+
+- 入口 `src/client/index.tsx`：`export function apply(ctx)`。
+- 侧栏 tab：`ctx.get('betterSidebar')?.registerTab({ id:'mcpp:admin', title:'MCP 网关', description:'聚合工具与网关管理', icon, order: 45, single: true, component: McppAdminPanel })`；`McppAdminPanel` = `<iframe src="/plugins/mcpp/admin">` 占满容器（`visible` 为 false 时无需轮询，纯 iframe）。
+- 设置页分区：`ctx.get('slots')` → `slots.inject('settings.section', () => slots.register({name:'settings.section', id:'mcpp', order: 45, label: () => 'MCP 工具'}, McppToolsSection))`；`McppToolsSection` 拉 `/plugins/mcpp/ui/catalog`，按 toolset 分组渲染复选框 + toolset 全选/全不选 + 保存（POST selection）+ 同步（POST sync）+ 显示 registered 数量与注册失败项（如与 mcp-client 同名冲突）。
+- 只允许 `import ... from 'react'`；不得 import 任何 `@deepseek-ai/*` 值（module table 只提供 react）。本地类型放 `src/client/types.ts`。样式用内联 style + 一个 `<style>` 注入（无 CSS Modules）。
+- 服务缺失（无 slots / 无 betterSidebar）时安静跳过，不抛错。
+
+### `src/plugin.ts`（Lead 接线）
+
+- 启动顺序：gateway.start() →（异步）首次 native sync → `ctx.provide('mcpp', service)` →（如有 webServer）`registerDshRoutes`。
+- `ctx.mcpp` 服务：`{ catalog(): Promise<…>, call(name, args, signal?): Promise<JsonObject>, upstreams(): string[], toolsets(): string[] }`；`call` 用 `findExposeEntry(config, name, 'claude', undefined)` 解析 → `paramTransformValue` → transport.callTool（未选中的工具也能调，服务面向插件而非模型）。
+- 选择变更/配置 reload 后重抓上游工具并重注册；上游抓取失败只影响该上游的工具（沿用 `fetchTools` 语义）。
+- 所有注册/路由必须走 `ctx.effect`，随插件卸载释放。
+
+### 验收
+
+1. 单测全绿；`tsc` 干净；`tsdown` 产出 `lib/index.js` + `lib/client.js`。
+2. 假宿主集成测试：注册 0 个（默认）→ 勾选 2 个 → `ctx.tools` 出现 2 个 `mcp__*`；取消 → 消失；执行一个工具经假上游返回内容；同名冲突进 errors。
+3. 真机（重启桌面端后）：dsh 会话里模型能直接调用勾选工具；侧栏出现「MCP 网关」页签；设置页出现「MCP 工具」分区且勾选生效；9020 外部端点仍 91/91 对齐。

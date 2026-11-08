@@ -1,12 +1,15 @@
 {
   "name": "dsh-mcpp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "./lib/index.js",
   "exports": {
     ".": {
       "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
     }
   },
   "files": [
@@ -16,12 +19,17 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
     }
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.0.0",
-    "js-yaml": "^4.3.2"
+    "@types/react": "^18.3.12",
+    "js-yaml": "^4.3.2",
+    "react": "^18.3.1"
   },
   "peerDependencies": {
     "@deepseek-ai/schemastery": "*"

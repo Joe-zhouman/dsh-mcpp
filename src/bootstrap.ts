@@ -40,12 +40,19 @@ export interface CreateGatewayOptions {
   env?: NodeJS.ProcessEnv
   /** Logger; a stderr logger by default. */
   logger?: Logger
+  /**
+   * Called after a configuration reload swapped the live config and rebuilt the
+   * transports, so consumers (the native tool surface) can re-sync.
+   */
+  onConfigChanged?: () => void
 }
 
 /** Live gateway handle. */
 export interface GatewayHandle {
   readonly runtime: GatewayRuntime
   readonly configPath: string
+  /** Handler dependencies, shared with the same-origin DSH routes. */
+  readonly deps: { mcp: McpHandlerDeps; admin: AdminDeps }
   /** Bound address, or undefined before {@link start}. */
   address(): { host: string; port: number } | undefined
   /**
@@ -192,6 +199,7 @@ export function createGateway(options: CreateGatewayOptions): GatewayHandle {
       runtime.config = reparsed
       buildUpstreams()
       await Promise.allSettled(stale.map(async (transport) => transport.close()))
+      options.onConfigChanged?.()
     },
   }
 
@@ -232,6 +240,7 @@ export function createGateway(options: CreateGatewayOptions): GatewayHandle {
   return {
     runtime,
     configPath: options.configPath,
+    deps: { mcp: mcpDeps, admin: adminDeps },
 
     address() {
       return server.address
