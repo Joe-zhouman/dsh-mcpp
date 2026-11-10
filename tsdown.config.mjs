@@ -3,9 +3,10 @@
  * repository presets are workspace-only, so this file restates the contracts.
  *
  * Two passes, one lib/ artifact directory:
- * 1. host  — ESM lib/index.js from the Cordis plugin entry. Runtime dependencies
- *            must be zero (the profile only provides `@deepseek-ai/schemastery`),
- *            so js-yaml is bundled into the artifact.
+ * 1. host  — ESM lib/index.js from the Cordis plugin entry plus lib/scoped.js
+ *            from the preset-scoped entry. Runtime dependencies must be zero
+ *            (the profile only provides `@deepseek-ai/schemastery`), so js-yaml
+ *            is bundled into the artifact.
  * 2. client — CJS factory lib/client.js for the browser module loader. The
  *            banner/intro/footer are copied verbatim from the DSH client build
  *            so the artifact is executable by `window.__ModuleLoader__.load`.
@@ -24,10 +25,10 @@ const MODULE_TABLE_KEYS = ['react', 'react/jsx-runtime']
 
 const isModuleTableKey = (specifier) => MODULE_TABLE_KEYS.includes(specifier)
 
-/** Host pass: the Cordis plugin entry, loaded from the real profile install. */
+/** Host pass: the Cordis plugin entries, loaded from the real profile install. */
 const host = {
   name: ID,
-  entry: { index: 'index.mjs' },
+  entry: { index: 'index.mjs', scoped: 'scoped.mjs' },
   outDir: 'lib',
   format: 'esm',
   platform: 'node',

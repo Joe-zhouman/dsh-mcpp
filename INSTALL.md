@@ -2,6 +2,8 @@
 
 以共享 home `L:\dsh\.dsh-home`、桌面端 profile `desktop` 为例。**目标端由 dsh 宿主托管网关，旧 Python 服务不再单独运行。**
 
+> 本文以作者的本地部署为例：路径（`L:\dsh\.dsh-home`、`L:\dsh\.local-deploy\mcpp-plugin`）、profile 名与 `config.yaml` 位置换成你自己的即可。插件本身与机器无关，`configPath` 是唯一的必需配置项。
+
 插件 v0.2 起带浏览器半区（侧栏页签 + 设置页分区），因此以 **bundle** 形式安装：`dsh.profile.bundles` 提供插件行（插件自带的 `cordis.patch.yml` 负责 insert），profile 补丁只按 id 覆盖配置。
 
 一键脚本（需要不受 dsh 沙箱限制的 shell）：

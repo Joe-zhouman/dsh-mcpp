@@ -287,13 +287,14 @@ export function selectSpecs(
 }
 
 /**
- * Build one DSH tool definition from a spec.
+ * Build one DSH tool definition from a spec. Exported so a preset-scoped
+ * surface can reuse the exact same adapter the global surface registers.
  * @param deps - call path and registry dependencies.
  * @param spec - desired tool.
  * @param timeoutMs - precomputed deadline; undefined omits the field.
  * @returns the definition to register.
  */
-function buildDefinition(
+export function buildNativeDefinition(
   deps: NativeToolDeps,
   spec: NativeToolSpec,
   timeoutMs: number | undefined,
@@ -370,7 +371,7 @@ export function createNativeToolSet(deps: NativeToolDeps): NativeToolSet {
         if (registration !== undefined && registration.hash === hash) continue
         if (registration !== undefined) retire(name)
         try {
-          live.set(name, { hash, dispose: deps.tools.register(buildDefinition(deps, spec, timeoutMs)) })
+          live.set(name, { hash, dispose: deps.tools.register(buildNativeDefinition(deps, spec, timeoutMs)) })
         } catch (error) {
           const message = messageOf(error)
           errors.push({ name, message })

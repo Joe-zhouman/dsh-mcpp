@@ -31,7 +31,9 @@ test('every declared artifact exists on disk', () => {
     assert.ok(existsSync(join(packageDir, file)), `declared artifact "${file}" is missing`)
   }
   assert.equal(manifest.main, './lib/index.js')
+  assert.equal(manifest.exports['./scoped'].default, './lib/scoped.js')
   assert.equal(manifest.exports['./client'].default, './lib/client.js')
+  assert.ok(existsSync(join(packageDir, 'lib/scoped.js')), 'scoped bundle must be built before packaging')
   assert.ok(existsSync(join(packageDir, 'lib/client.js')), 'client bundle must be built before packaging')
 })
 

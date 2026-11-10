@@ -10,9 +10,10 @@
  */
 
 import { resolveEnvValue } from './config.ts'
+import { collectNativeToolSpecs, type NativeToolSpec } from './native-tools.ts'
 import { getFormat } from './presets.ts'
 import { displayName, paramTransformValue } from './transform.ts'
-import type { ExposeEntry, GatewayRuntime, JsonObject } from './types.ts'
+import type { ExposeEntry, GatewayRuntime, JsonObject, Tool } from './types.ts'
 
 /**
  * Resolve a client-facing (`mcp__<toolset>__<tool>`), display, or stable-key
@@ -73,6 +74,32 @@ export interface McppCatalog {
   upstreams: { name: string; transport: 'http' | 'stdio' }[]
 }
 
+/**
+ * Names a {@link McppService.specs} call selects from. A spec is selected when
+ * it satisfies every list that is present; an excluded spec is dropped even
+ * when the include lists selected it.
+ */
+export interface McppToolFilter {
+  /**
+   * Tool names to include, in any of the three spellings the gateway knows:
+   * the public name (`mcp__search__searxng`), the display name (`searxng`), or
+   * the stable key (`search/searxng_search`).
+   */
+  tools?: string[]
+  /** Aggregated server names; a spec is selected when its toolset is one of them. */
+  toolsets?: string[]
+  /** Tool names to drop, using the same three spellings as {@link tools}. */
+  exclude?: string[]
+}
+
+/** One registrable native tool and the deadline its upstream policy implies. */
+export interface McppToolSpec {
+  /** The tool to register into the calling scope. */
+  spec: NativeToolSpec
+  /** Per-call deadline in milliseconds; undefined when the upstream is not configured. */
+  timeoutMs: number | undefined
+}
+
 /** The service published as `ctx.mcpp`. */
 export interface McppService {
   /** Current tool catalog with selection and registration state. */
@@ -87,6 +114,27 @@ export interface McppService {
    * @throws when the tool is unknown or the upstream call fails.
    */
   call(name: string, args?: JsonObject, signal?: AbortSignal): Promise<JsonObject>
+  /**
+   * Collect the exposed tools a preset-scoped surface should register. The
+   * filter is conjunctive and an empty include filter selects nothing, so a row
+   * that names no tool can never inherit the whole catalog.
+   * @param filter - names and toolsets to include, plus names to exclude.
+   * @returns the selected tools with their upstream deadlines, in expose order.
+   * @throws when an explicitly named tool or toolset matches no exposed tool.
+   */
+  specs(filter?: McppToolFilter): Promise<McppToolSpec[]>
+  /**
+   * Invoke one upstream tool whose arguments are already mapped for the
+   * upstream. Unlike {@link call} there is no name resolution and no parameter
+   * transform: the caller owns both.
+   * @param upstreamName - configured upstream to call.
+   * @param tool - upstream tool name.
+   * @param args - upstream arguments.
+   * @param signal - optional cancellation; checked before dispatch.
+   * @returns the upstream JSON-RPC `result` object.
+   * @throws when the upstream is not configured or the call fails.
+   */
+  invoke(upstreamName: string, tool: string, args: JsonObject, signal?: AbortSignal): Promise<JsonObject>
   /** Configured upstream names. */
   upstreams(): string[]
   /** Aggregated server names (including the default one). */
@@ -100,6 +148,11 @@ export interface McppServiceDeps {
   enabledKeys(): Promise<string[]>
   /** Names currently registered in the DSH tool registry. */
   registeredNames(): string[]
+  /**
+   * Raw upstream tool lists used to build native specs. The host serves its
+   * most recent sync snapshot and falls back to a live fetch.
+   */
+  rawTools(): Promise<Map<string, Tool[]>>
 }
 
 /**
@@ -139,8 +192,47 @@ export function buildCatalog(runtime: GatewayRuntime, enabled: readonly string[]
 }
 
 /**
+ * Test one spec against a caller-supplied tool name. The gateway addresses a
+ * tool by its public name, its display name, or its stable key; a preset row
+ * may use any of the three.
+ * @param spec - candidate tool.
+ * @param name - caller-supplied name.
+ * @returns whether the name identifies this spec.
+ */
+function matchesSpecName(spec: NativeToolSpec, name: string): boolean {
+  return name === spec.publicName || name === spec.key || name === displayName(spec.entry, spec.key)
+}
+
+/**
+ * Read the deadline a tool inherits from its upstream policy. The +15s margin
+ * matches the native host surface, so a preset-scoped tool is not cut off
+ * before its upstream answers.
+ * @param runtime - live runtime.
+ * @param upstreamName - upstream the tool calls.
+ * @returns the deadline in milliseconds, or undefined for an unconfigured upstream.
+ */
+function deadlineFor(runtime: GatewayRuntime, upstreamName: string): number | undefined {
+  const upstream = runtime.config.upstreams.find((candidate) => candidate.name === upstreamName)
+  return upstream === undefined ? undefined : (upstream.readTimeout + 15) * 1000
+}
+
+/**
+ * Build the error for a filter naming tools or toolsets that no exposed tool
+ * answers to.
+ * @param unknownTools - tool names that matched nothing.
+ * @param unknownToolsets - toolset names that matched nothing.
+ * @returns the aggregated error.
+ */
+function noMatchError(unknownTools: readonly string[], unknownToolsets: readonly string[]): Error {
+  const parts: string[] = []
+  if (unknownTools.length > 0) parts.push(`tools ${unknownTools.map((name) => JSON.stringify(name)).join(', ')}`)
+  if (unknownToolsets.length > 0) parts.push(`toolsets ${unknownToolsets.map((name) => JSON.stringify(name)).join(', ')}`)
+  return new Error(`[mcpp] no exposed tool matches filter ${parts.join(' and ')}`)
+}
+
+/**
  * Create the `ctx.mcpp` service.
- * @param deps - runtime, selection lookup, and live registration view.
+ * @param deps - runtime, selection lookup, live registration view, and raw tools.
  * @returns the service value.
  */
 export function createMcppService(deps: McppServiceDeps): McppService {
@@ -158,6 +250,36 @@ export function createMcppService(deps: McppServiceDeps): McppService {
       if (transport === undefined) throw new Error(`[mcpp] upstream '${found.upstreamName}' is not configured`)
       const upstreamArgs = paramTransformValue(args, found.entry)
       return await transport.callTool(found.entry.tool, upstreamArgs)
+    },
+
+    async specs(filter = {}) {
+      const tools = filter.tools ?? []
+      const toolsets = filter.toolsets ?? []
+      const exclude = filter.exclude ?? []
+      // An empty include filter means "nothing", never "everything": a preset
+      // that forgot its filter must fail instead of inheriting the catalog.
+      if (tools.length === 0 && toolsets.length === 0) return []
+
+      const all = collectNativeToolSpecs(runtime.config, await deps.rawTools())
+      const unknownTools = tools.filter((name) => !all.some((spec) => matchesSpecName(spec, name)))
+      const unknownToolsets = toolsets.filter((name) => !all.some((spec) => spec.toolset === name))
+      if (unknownTools.length > 0 || unknownToolsets.length > 0) throw noMatchError(unknownTools, unknownToolsets)
+
+      const selected: McppToolSpec[] = []
+      for (const spec of all) {
+        if (tools.length > 0 && !tools.some((name) => matchesSpecName(spec, name))) continue
+        if (toolsets.length > 0 && !toolsets.includes(spec.toolset)) continue
+        if (exclude.some((name) => matchesSpecName(spec, name))) continue
+        selected.push({ spec, timeoutMs: deadlineFor(runtime, spec.upstreamName) })
+      }
+      return selected
+    },
+
+    async invoke(upstreamName, tool, args, signal) {
+      if (signal?.aborted === true) throw new Error('[mcpp] the call was canceled before dispatch')
+      const transport = runtime.upstreams.get(upstreamName)
+      if (transport === undefined) throw new Error(`[mcpp] upstream '${upstreamName}' is not configured`)
+      return await transport.callTool(tool, args)
     },
 
     upstreams() {

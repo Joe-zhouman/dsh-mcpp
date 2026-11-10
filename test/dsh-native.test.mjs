@@ -276,5 +276,16 @@ test('the ctx.mcpp service answers catalog and call independently of the selecti
   const called = upstream.requests.filter((request) => request.method === 'tools/call').at(-1)
   assert.equal(called.body.params.name, 'fetch_doc')
   assert.deepEqual(called.body.params.arguments, { id: 'doc-1' })
+
+  // The preset-facing seam picks registrable specs from the host's upstream
+  // view and invokes the upstream directly, without the parameter transforms.
+  const [spec] = await service.specs({ toolsets: ['search'] })
+  assert.equal(spec.spec.publicName, 'mcp__search__searxng')
+  assert.equal(spec.timeoutMs, 25000)
+  const invoked = await service.invoke('corpus', 'search', { query: 'unmapped' })
+  assert.ok(Array.isArray(invoked.content))
+  const rawCall = upstream.requests.filter((request) => request.method === 'tools/call').at(-1)
+  assert.equal(rawCall.body.params.name, 'search')
+  assert.deepEqual(rawCall.body.params.arguments, { query: 'unmapped' })
 })
 

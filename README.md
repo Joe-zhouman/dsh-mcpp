@@ -1,6 +1,6 @@
 # dsh-mcpp
 
-把 Python 版 **mcpp** 网关（`C:\Users\joe\Documents\repo\skill\mcpp`，一个 MCP 聚合网关）完整重实现为 **DSH 宿主侧 Cordis 插件**。旧服务退场后，`127.0.0.1:9020` 上回答 `/api/*`、`/admin` 与 `/{toolset}/{naming}/mcp` 的就是这个插件。
+把 Python 版 **mcpp** 网关（一个 MCP 聚合网关）完整重实现为 **DSH 宿主侧 Cordis 插件**。旧服务退场后，`127.0.0.1:9020` 上回答 `/api/*`、`/admin` 与 `/{toolset}/{naming}/mcp` 的就是这个插件。
 
 **对客户端是 drop-in**：同一批路径、同一个 `config.yaml`、同一个 `auth.token`。Claude Code / Cursor / OpenCode / Codex 等现有配置一行都不用改。
 
@@ -33,12 +33,15 @@
   - `GET /plugins/mcpp/ui/catalog`、`POST /plugins/mcpp/ui/selection`、`POST /plugins/mcpp/ui/sync`
 - 浏览器半区：侧栏「MCP 网关」页签（iframe 管理页）+ 设置页「MCP 工具」分区（勾选/保存/重新同步/失败原因）。
 - `ctx.mcpp` 服务：`catalog()` / `call(name, args, signal?)` / `upstreams()` / `toolsets()`；调用不要求工具被选中。
+- **预设作用域工具面（v0.3）**：`dsh-mcpp/scoped` 入口让 agent preset 行按 `tools` / `toolsets` / `exclude` 过滤，只把选中的 `mcp__*` 工具注册进该预设自己的 scope（主 agent 看不到），调用复用宿主网关的同一批上游连接，不再走第二道 MCP。
 
 ## 代码结构
 
 ```
 index.mjs              bundle 入口（re-export src/plugin.ts）
+scoped.mjs             预设作用域入口（re-export src/scoped.ts）
 src/plugin.ts          Cordis 插件：Config + apply（网关、原生工具、同源路由、ctx.mcpp 服务）
+src/scoped.ts          预设作用域插件：按 tools/toolsets/exclude 把工具注册进调用方 scope
 src/bootstrap.ts       composition root：读配置、建上游/密钥池、预热 stdio、reload 路径
 src/server.ts          9020 的 node:http 监听：路由表、鉴权、cookie、静态 admin 页
 src/gateway.ts         MCP JSON-RPC 协议层（initialize / tools/list / tools/call / …）
@@ -94,6 +97,7 @@ node --experimental-strip-types scripts/verify-live.mjs --base http://127.0.0.1:
 
 - v0.1：207/207 单测与端到端用例通过；91 个 golden 与旧服务逐端点 **91/91 identical**；同一套检查在「插件装进 dsh 宿主」的实例上复跑同样 91/91，`verify-live` 12 项全过。
 - v0.2：全量 **255/255** 测试通过（新增 24 个 native/selection + 21 个同源路由 + 3 个接线端到端）；在真实 dsh web 宿主上实测：选择往返 `POST /plugins/mcpp/ui/selection` → `registered` 出现/消失、设置页「MCP 工具」分区渲染 20 个工具、侧栏「MCP 网关」页签加载管理页、`/plugins/mcpp/*` 全部受 dsh 浏览器会话围栏保护（未登录 401）；9020 外部端点重跑 golden 仍 **91/91**。
+- v0.3（2026-11-10）：全量 **280/280** 测试通过（新增 25 项 preset-scoped 与 service specs）；新增 `dsh-mcpp/scoped` 预设作用域入口，`package.json` 的 `./scoped` 子路径导出 `lib/scoped.js`，构建与 subpath 解析一并纳入测试。
 
 ## 打包约定（踩过的坑）
 

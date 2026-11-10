@@ -100,6 +100,9 @@ export async function apply(ctx: DshPluginContext, config: ResolvedConfig): Prom
   let nativeSet: NativeToolSet | undefined
   let disposeRoutes: (() => void) | undefined
   let syncChain: Promise<SyncResult> = Promise.resolve({ registered: [], errors: [] })
+  // Latest upstream tool snapshot from a successful sync, shared with the
+  // `ctx.mcpp` service so a preset mount does not re-list every upstream.
+  let rawToolSnapshot: Map<string, Tool[]> | undefined
 
   const gateway = createGateway({
     configPath: config.configPath,
@@ -136,6 +139,7 @@ export async function apply(ctx: DshPluginContext, config: ResolvedConfig): Prom
     const run = async (): Promise<SyncResult> => {
       if (nativeSet === undefined) return { registered: [], errors: [] }
       const rawTools = await fetchRawTools()
+      rawToolSnapshot = rawTools
       const specs = collectNativeToolSpecs(gateway.runtime.config, rawTools)
       const enabled = new Set((await selection.load()).enabled)
       const result = nativeSet.sync(selectSpecs(specs, enabled))
@@ -258,5 +262,8 @@ export async function apply(ctx: DshPluginContext, config: ResolvedConfig): Prom
     runtime: gateway.runtime,
     enabledKeys: async () => (await selection.load()).enabled,
     registeredNames: () => nativeSet?.registeredNames() ?? [],
+    // Serve the sync snapshot when one exists; a preset that mounts before the
+    // first sync pays for one live listing instead.
+    rawTools: async () => rawToolSnapshot ?? await fetchRawTools(),
   }))
 }
